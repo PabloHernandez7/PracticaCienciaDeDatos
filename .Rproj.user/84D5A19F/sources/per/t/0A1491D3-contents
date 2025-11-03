@@ -113,5 +113,3 @@ write_xlsx(
   ),
   path = "resultados_viajes.xlsx"
 )
-
-
