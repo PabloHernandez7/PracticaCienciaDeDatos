@@ -8,6 +8,7 @@
 library(readxl)
 library(dplyr)
 library(writexl)
+library(tidyr)
 
 # Ruta del archivo Excel
 datos_original <- read_excel("Viajes origen destino optativa Exactas.xlsx", sheet = "Base de datos para el práctico")
@@ -30,10 +31,27 @@ datos_con_actividad <- datos_original %>%
 
 # 2) A partir de datos_con_actividad: definimos blocks de journey y flags + t_actividad_fila
 base_para_ttr <- datos_con_actividad %>%
-  mutate(JOURNEY = trimws(as.character(JOURNEY))) %>%
+  mutate(JOURNEY = trimws(as.character(JOURNEY)),
+         # Convertir JOURNEY a número si se puede
+         JOURNEY_num = suppressWarnings(as.numeric(JOURNEY))
+  ) %>%
   group_by(Identificacion) %>%
   # jblock: cada vez que aparece un valor (no-NA) en JOURNEY arranca un bloque nuevo (emula celdas combinadas)
-  mutate(jblock = cumsum(!is.na(JOURNEY))) %>%
+  mutate(# 🧭 Detección de nuevo bloque de journey
+      nuevo_bloque = ifelse(
+      # 1) No hay journey anterior → nuevo bloque
+      is.na(lag(JOURNEY_num)) |
+      # 2) Cambia el tipo de journey → nuevo bloque
+      (JOURNEY_num != lag(JOURNEY_num)) |
+      # 3) Motivo actual = "Volver a Casa" → fin del bloque anterior
+      grepl("volver a casa", tolower(`Motivo del Viaje`)) |
+      # 4) Journey previo era inválido (X o NA)
+      lag(JOURNEY) %in% c("X", "x", NA),
+      TRUE, FALSE
+    ),
+    # 🔢 Contador acumulado de bloques
+    jblock = cumsum(replace_na(nuevo_bloque, FALSE))
+  ) %>%
   group_by(Identificacion, jblock) %>%
   mutate(
     # invalida TODO el bloque si alguna fila tiene X/x
