@@ -20,7 +20,7 @@ datos_con_actividad <- datos_original %>%
     HoraIni = as.POSIXct(HoraInicio, format = "%I:%M:%S %p"),
     HoraFin = as.POSIXct(HoraFin, format = "%I:%M:%S %p")
   ) %>%
-  group_by(Identificacion) %>%
+  group_by(Identificación) %>%
   mutate(
     HoraFin_anterior = lag(HoraFin),
     t_actividad_min = as.numeric(difftime(HoraIni, HoraFin_anterior, units = "mins")),
@@ -35,7 +35,7 @@ base_para_ttr <- datos_con_actividad %>%
          # Convertir JOURNEY a número si se puede
          JOURNEY_num = suppressWarnings(as.numeric(JOURNEY))
   ) %>%
-  group_by(Identificacion) %>%
+  group_by(Identificación) %>%
   # jblock: cada vez que aparece un valor (no-NA) en JOURNEY arranca un bloque nuevo (emula celdas combinadas)
   mutate(# 🧭 Detección de nuevo bloque de journey
       nuevo_bloque = ifelse(
@@ -52,7 +52,7 @@ base_para_ttr <- datos_con_actividad %>%
     # 🔢 Contador acumulado de bloques
     jblock = cumsum(replace_na(nuevo_bloque, FALSE))
   ) %>%
-  group_by(Identificacion, jblock) %>%
+  group_by(Identificación, jblock) %>%
   mutate(
     # invalida TODO el bloque si alguna fila tiene X/x
     hay_x = any(JOURNEY %in% c("X","x"), na.rm = TRUE),
@@ -67,7 +67,7 @@ base_para_ttr <- datos_con_actividad %>%
 
 # Última fila de cada persona suele quedar NA (no hay viaje siguiente)
 base_para_ttr %>%
-  group_by(Identificacion) %>% slice_tail(n = 1) %>% ungroup() %>%
+  group_by(Identificación) %>% slice_tail(n = 1) %>% ungroup() %>%
   summarise(total = n(), ultimas_con_NA = sum(is.na(t_actividad_fila)))
 
 
@@ -97,7 +97,7 @@ resultados <- base_para_ttr %>%
 
 prom_persona_actividad <- resultados %>%
   filter(valido, !is.na(tv_min)) %>%
-  group_by(Identificacion, `Motivo del Viaje`) %>%
+  group_by(Identificación, `Motivo del Viaje`) %>%
   summarise(
     n_obs = n(),
     tiempo_viaje_prom_min = mean(tv_min, na.rm = TRUE),
@@ -118,7 +118,7 @@ prom_global_actividad <- resultados %>%
 
 
 
-prom_persona_actividad %>% arrange(Identificacion, `Motivo del Viaje`) %>% head(15)
+prom_persona_actividad %>% arrange(Identificación, `Motivo del Viaje`) %>% head(15)
 prom_global_actividad
 
 prom_global_actividad <- prom_global_actividad %>%

@@ -46,108 +46,182 @@ parse_edad <- function(x) {
 }
 
 # ---- Aplicación a tu base ----
-age_info <- parse_edad(base_completa[[edad_col]])
 
-base_completa <- bind_cols(base_completa, age_info) %>%
+base_actividades <- prom_persona_actividad %>%
+  left_join(personas, by = "Identificacion")
+
+edad_col <- names(base_actividades)[
+  grepl("edad", names(base_actividades), ignore.case = TRUE)
+][1]
+
+edad_col   # debería mostrar el nombre de la columna de edad en el CSV
+
+age_info <- parse_edad(base_actividades[[edad_col]])
+
+base_actividades <- base_actividades %>%
+  bind_cols(age_info) %>%
   mutate(
-    # ordenar el factor de menor a mayor usando el límite inferior / midpoint
     edad_rango = factor(
       edad_rango,
       levels = unique(edad_rango[order(edad_lo, edad_mid, na.last = TRUE)]),
       ordered = TRUE
-    )
+    ),
+    Genero = case_when(
+      `Género` %in% c("Masculino","M","m","masculino") ~ "Masculino",
+      `Género` %in% c("Femenino","F","f","femenino")   ~ "Femenino",
+      TRUE ~ as.character(`Género`)
+    ),
+    Genero    = factor(Genero),
+    Ocupacion = as.factor(`Ocupación`)
   )
 
-#COLUMNAS SIN TILDE
-
-base_completa <- base_completa %>%
-  mutate(Genero = if ("Género" %in% names(.)) as.factor(`Género`) else as.factor(Genero),
-         Ocupacion = if ("Ocupación" %in% names(.)) as.factor(`Ocupación`) else as.factor(Ocupacion))
+glimpse(base_actividades)
 
 
-# ====== Base para graficar (quita NAs de la métrica) ======
-bc <- base_completa %>%
-  filter(!is.na(tiempo_viaje_prom_min))
+# 2) Actividades por persona (cuántos motivos distintos tiene cada una)
+activ_por_persona <- base_actividades %>%
+  filter(!is.na(`Motivo del Viaje`)) %>%
+  group_by(Identificacion) %>%
+  summarise(
+    n_actividades = n_distinct(`Motivo del Viaje`),
+    edad_rango = first(edad_rango),
+    Genero     = first(Genero),
+    Ocupacion  = first(Ocupacion),
+    .groups = "drop"
+  )
 
-# ========== 1) Barras por RANGO ETARIO (promedio general) ==========
-bc <- base_completa %>%
-  filter(!is.na(tiempo_viaje_prom_min),
-         !is.na(edad_rango),
-         !is.na(Ocupacion))
+glimpse(activ_por_persona)
 
-edad_res <- bc %>%
+edad_res <- activ_por_persona %>%
+  filter(!is.na(edad_rango)) %>%
   group_by(edad_rango) %>%
   summarise(
-    n = n(),
-    prom_min = mean(tiempo_viaje_prom_min, na.rm = TRUE),
+    n_personas = n(),
+    prom_actividades = mean(n_actividades, na.rm = TRUE),
     .groups = "drop"
-  ) %>%
-  # ordenar por promedio (de mayor a menor)
-  arrange(desc(prom_min))
+  )
 
-ggplot(edad_res, aes(x = edad_rango, y = prom_min, fill = prom_min)) +
+ggplot(edad_res,
+       aes(x = edad_rango, y = prom_actividades, fill = prom_actividades)) +
   geom_col(show.legend = FALSE) +
-  coord_flip() +
+  # sin coord_flip()
   scale_fill_gradient(low = "#90CAF9", high = "#1565C0") +
-  labs(title = "Tiempo de viaje promedio por rango etario",
-       x = "Rango etario", y = "Promedio (min)") +
-  theme_minimal(base_size = 12)
+  labs(
+    title = "Promedio de actividades por rango etario",
+    x = "Rango etario",
+    y = "Promedio de actividades por persona"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)  # inclina labels del eje X
+  )
 
-# ========== 2) Barras por GÉNERO para los 6 MOTIVOS más frecuentes ==========
-bc <- base_completa %>%
-  filter(!is.na(tiempo_viaje_prom_min),
-         !is.na(edad_rango),
-         !is.na(Ocupacion))
 
-top_motivos <- bc %>%
-  count(`Motivo del Viaje`, sort = TRUE) %>%
-  slice_head(n = 6) %>%
-  pull(`Motivo del Viaje`)
-
-genero_res <- bc %>%
-  filter(`Motivo del Viaje` %in% top_motivos, !is.na(Genero)) %>%
-  group_by(Genero, `Motivo del Viaje`) %>%
+genero_res <- activ_por_persona %>%
+  filter(!is.na(Genero)) %>%
+  group_by(Genero) %>%
   summarise(
-    n = n(),
-    prom_min = mean(tiempo_viaje_prom_min, na.rm = TRUE),
+    n_personas = n(),
+    prom_actividades = mean(n_actividades, na.rm = TRUE),
     .groups = "drop"
   )
 
 ggplot(genero_res,
-       aes(x = reorder(`Motivo del Viaje`, prom_min, FUN = max), y = prom_min, fill = Genero)) +
-  geom_col(position = position_dodge(width = 0.8)) +
-  coord_flip() +
-  labs(title = "Tiempo de viaje promedio por género (top 6 motivos)",
-       x = "Motivo del viaje", y = "Promedio (min)", fill = "Género") +
+       aes(x = Genero, y = prom_actividades, fill = Genero)) +
+  geom_col(show.legend = FALSE) +
+  labs(
+    title = "Promedio de actividades por género",
+    x = "Género",
+    y = "Promedio de actividades por persona"
+  ) +
   theme_minimal(base_size = 12)
 
-# ========== 3) Barras por OCUPACIÓN (top-10 por cantidad) ==========
-bc <- base_completa %>%
-  filter(!is.na(tiempo_viaje_prom_min),
-         !is.na(edad_rango),
-         !is.na(Ocupacion))
 
-top_ocup <- bc %>%
+top_ocup <- activ_por_persona %>%
+  filter(!is.na(Ocupacion)) %>%
   count(Ocupacion, sort = TRUE) %>%
   slice_head(n = 10) %>%
   pull(Ocupacion)
 
-ocup_res <- bc %>%
-  filter(Ocupacion %in% top_ocup) %>%
+ocup_res <- activ_por_persona %>%
+  filter(!is.na(Ocupacion)) %>%
   group_by(Ocupacion) %>%
   summarise(
-    n = n(),
-    prom_min = mean(tiempo_viaje_prom_min, na.rm = TRUE),
+    n_personas = n(),
+    prom_actividades = mean(n_actividades, na.rm = TRUE),
     .groups = "drop"
   ) %>%
-  arrange(prom_min)
+  arrange(prom_actividades)
 
-
-ggplot(ocup_res, aes(x = reorder(Ocupacion, prom_min), y = prom_min, fill = Ocupacion)) +
-  geom_col(show.legend = FALSE) +
+ggplot(ocup_res,
+       aes(x = reorder(Ocupacion, prom_actividades),
+           y = prom_actividades)) +
+  geom_segment(aes(xend = Ocupacion, y = 0, yend = prom_actividades)) +
+  geom_point(size = 3) +
   coord_flip() +
-  scale_fill_brewer(palette = "Set3") +
-  labs(title = "Tiempo de viaje promedio por ocupación (top 10)",
-       x = "Ocupación", y = "Promedio (min)") +
+  labs(
+    title = "Promedio de actividades por ocupación",
+    x = "Ocupación",
+    y = "Promedio de actividades por persona"
+  ) +
   theme_minimal(base_size = 12)
+
+edad_tabla <- activ_por_persona %>%
+  filter(!is.na(edad_rango)) %>%
+  group_by(edad_rango) %>%
+  summarise(
+    n_personas = n(),
+    prom_actividades = mean(n_actividades, na.rm = TRUE),
+    prom_actividades_red = round(prom_actividades, 2),
+    .groups = "drop"
+  ) %>%
+  arrange(edad_rango)
+
+edad_tabla
+# o:
+View(edad_tabla)
+
+
+genero_tabla <- activ_por_persona %>%
+  filter(!is.na(Genero)) %>%
+  group_by(Genero) %>%
+  summarise(
+    n_personas = n(),
+    prom_actividades = mean(n_actividades, na.rm = TRUE),
+    prom_actividades_red = round(prom_actividades, 2),
+    .groups = "drop"
+  )
+
+genero_tabla
+# o:
+View(genero_tabla)
+
+
+ocup_tabla <- activ_por_persona %>%
+  filter(!is.na(Ocupacion)) %>%
+  group_by(Ocupacion) %>%
+  summarise(
+    n_personas = n(),
+    prom_actividades = mean(n_actividades, na.rm = TRUE),
+    prom_actividades_red = round(prom_actividades, 2),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(prom_actividades))
+
+ocup_tabla
+# o:
+View(ocup_tabla)
+
+library(writexl)
+
+write_xlsx(
+  list(
+    "Promedio_edad"   = edad_tabla,
+    "Promedio_genero" = genero_tabla,
+    "Promedio_ocup"   = ocup_tabla
+  ),
+  path = "resumen_promedios_actividades.xlsx"
+)
+
+
 
