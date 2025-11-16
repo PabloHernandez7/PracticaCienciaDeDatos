@@ -78,12 +78,16 @@ base_actividades <- base_actividades %>%
 glimpse(base_actividades)
 
 
-# 2) Actividades por persona (cuántos motivos distintos tiene cada una)
+# 2) Actividades por persona
 activ_por_persona <- base_actividades %>%
-  filter(!is.na(`Motivo del Viaje`)) %>%
+  filter(
+    !is.na(`Motivo del Viaje`),
+    !grepl("volver a casa", `Motivo del Viaje`, ignore.case = TRUE)
+  ) %>%
   group_by(Identificación) %>%
   summarise(
-    n_actividades = n_distinct(`Motivo del Viaje`),
+    # cuántas veces realiza actividades (usando n_obs del TP1)
+    total_actividades = sum(n_obs, na.rm = TRUE),
     edad_rango = first(edad_rango),
     Genero     = first(Genero),
     Ocupacion  = first(Ocupacion),
@@ -97,7 +101,7 @@ edad_res <- activ_por_persona %>%
   group_by(edad_rango) %>%
   summarise(
     n_personas = n(),
-    prom_actividades = mean(n_actividades, na.rm = TRUE),
+    prom_actividades = mean(total_actividades, na.rm = TRUE),
     .groups = "drop"
   )
 
@@ -122,11 +126,11 @@ genero_res <- activ_por_persona %>%
   group_by(Genero) %>%
   summarise(
     n_personas = n(),
-    prom_actividades = mean(n_actividades, na.rm = TRUE),
+    prom_actividades = mean(total_actividades, na.rm = TRUE),
     .groups = "drop"
   )
 
-p_gen <- ggplot(genero_res,
+p_genero <- ggplot(genero_res,
        aes(x = Genero, y = prom_actividades, fill = Genero)) +
   geom_col(show.legend = FALSE) +
   labs(
@@ -148,7 +152,7 @@ ocup_res <- activ_por_persona %>%
   group_by(Ocupacion) %>%
   summarise(
     n_personas = n(),
-    prom_actividades = mean(n_actividades, na.rm = TRUE),
+    prom_actividades = mean(total_actividades, na.rm = TRUE),
     .groups = "drop"
   ) %>%
   arrange(prom_actividades)
@@ -171,7 +175,7 @@ edad_tabla <- activ_por_persona %>%
   group_by(edad_rango) %>%
   summarise(
     n_personas = n(),
-    prom_actividades = mean(n_actividades, na.rm = TRUE),
+    prom_actividades = mean(total_actividades, na.rm = TRUE),
     prom_actividades_red = round(prom_actividades, 2),
     .groups = "drop"
   ) %>%
@@ -187,7 +191,7 @@ genero_tabla <- activ_por_persona %>%
   group_by(Genero) %>%
   summarise(
     n_personas = n(),
-    prom_actividades = mean(n_actividades, na.rm = TRUE),
+    prom_actividades = mean(total_actividades, na.rm = TRUE),
     prom_actividades_red = round(prom_actividades, 2),
     .groups = "drop"
   )
@@ -202,7 +206,7 @@ ocup_tabla <- activ_por_persona %>%
   group_by(Ocupacion) %>%
   summarise(
     n_personas = n(),
-    prom_actividades = mean(n_actividades, na.rm = TRUE),
+    prom_actividades = mean(total_actividades, na.rm = TRUE),
     prom_actividades_red = round(prom_actividades, 2),
     .groups = "drop"
   ) %>%
