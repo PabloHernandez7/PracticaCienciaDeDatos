@@ -11,7 +11,7 @@ prom_persona_actividad <- read_excel("resultados_viajes.xlsx", sheet = "Promedio
 
 #Uno las dos bases para que tenga todos los datos
 base_completa <- prom_persona_actividad %>%
-  left_join(personas, by = "Identificacion")
+  left_join(personas, by = c("Identificación" = "Identificacion"))
 
 # Detecto la columna de edad por nombre (soporta "Edad", "Rango de edad", etc.)
 edad_col <- names(base_completa)[grepl("edad", names(base_completa), ignore.case = TRUE)][1]
@@ -48,7 +48,7 @@ parse_edad <- function(x) {
 # ---- Aplicación a tu base ----
 
 base_actividades <- prom_persona_actividad %>%
-  left_join(personas, by = "Identificacion")
+  left_join(personas, by = c("Identificación" = "Identificacion"))
 
 edad_col <- names(base_actividades)[
   grepl("edad", names(base_actividades), ignore.case = TRUE)
@@ -81,7 +81,7 @@ glimpse(base_actividades)
 # 2) Actividades por persona (cuántos motivos distintos tiene cada una)
 activ_por_persona <- base_actividades %>%
   filter(!is.na(`Motivo del Viaje`)) %>%
-  group_by(Identificacion) %>%
+  group_by(Identificación) %>%
   summarise(
     n_actividades = n_distinct(`Motivo del Viaje`),
     edad_rango = first(edad_rango),
@@ -101,7 +101,7 @@ edad_res <- activ_por_persona %>%
     .groups = "drop"
   )
 
-ggplot(edad_res,
+p_edad <- ggplot(edad_res,
        aes(x = edad_rango, y = prom_actividades, fill = prom_actividades)) +
   geom_col(show.legend = FALSE) +
   # sin coord_flip()
@@ -126,7 +126,7 @@ genero_res <- activ_por_persona %>%
     .groups = "drop"
   )
 
-ggplot(genero_res,
+p_gen <- ggplot(genero_res,
        aes(x = Genero, y = prom_actividades, fill = Genero)) +
   geom_col(show.legend = FALSE) +
   labs(
@@ -153,7 +153,7 @@ ocup_res <- activ_por_persona %>%
   ) %>%
   arrange(prom_actividades)
 
-ggplot(ocup_res,
+p_ocup <- ggplot(ocup_res,
        aes(x = reorder(Ocupacion, prom_actividades),
            y = prom_actividades)) +
   geom_segment(aes(xend = Ocupacion, y = 0, yend = prom_actividades)) +
@@ -223,5 +223,10 @@ write_xlsx(
   path = "resumen_promedios_actividades.xlsx"
 )
 
+ggsave("Edad.png", plot = p_edad, width = 7, height = 5, dpi = 300)
+ggsave("Genero.png", plot = p_genero, width = 7, height = 5, dpi = 300)
+ggsave("Ocupacion.png", plot = p_ocup, width = 7, height = 5, dpi = 300)
+
+getwd()
 
 

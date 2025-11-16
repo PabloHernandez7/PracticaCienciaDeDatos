@@ -118,7 +118,7 @@ prom_global_actividad <- resultados %>%
 
 
 
-prom_persona_actividad %>% arrange(Identificación, `Motivo del Viaje`) %>% head(15)
+prom_persona_actividad %>% arrange(Identificación, `Motivo del Viaje`)
 prom_global_actividad
 
 prom_global_actividad <- prom_global_actividad %>%
