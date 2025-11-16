@@ -87,13 +87,13 @@ base_para_ttr %>%
 #  summarise(filas_X = n(), X_con_NA = sum(is.na(t_actividad_min)))
 
 
-resultados <- base_para_ttr %>%
-  mutate(
-    TV     = as.numeric(TV),
-    tv_min = TV * 1440,
-    TTR    = ifelse(valido & !is.na(tv_min) & !is.na(t_actividad_fila) & tv_min >= 0,
-                    tv_min / (tv_min + t_actividad_fila), NA_real_)
-  )
+#resultados <- base_para_ttr %>%
+#  mutate(
+#    TV     = as.numeric(TV),
+#    tv_min = TV * 1440,
+#    TTR    = ifelse(valido & !is.na(tv_min) & !is.na(t_actividad_fila) & tv_min >= 0,
+#                    tv_min / (tv_min + t_actividad_fila), NA_real_)
+#  )
 
 prom_persona_actividad <- resultados %>%
   filter(valido, !is.na(tv_min)) %>%
@@ -101,7 +101,7 @@ prom_persona_actividad <- resultados %>%
   summarise(
     n_obs = n(),
     tiempo_viaje_prom_min = mean(tv_min, na.rm = TRUE),
-    TTR_prom = mean(TTR, na.rm = TRUE),
+    #TTR_prom = mean(TTR, na.rm = TRUE),
     .groups = "drop"
   )
 
@@ -111,23 +111,34 @@ prom_global_actividad <- resultados %>%
   summarise(
     n_obs = n(),
     tiempo_viaje_prom_min = mean(tv_min, na.rm = TRUE),
-    TTR_prom = mean(TTR, na.rm = TRUE),
+    #TTR_prom = mean(TTR, na.rm = TRUE),
     .groups = "drop"
   ) %>%
   arrange(`Motivo del Viaje`)
 
+prom_global_actividad %>%
+  summarise(total_n_obs = sum(n_obs, na.rm = TRUE))
+
+total_row <- prom_global_actividad %>%
+  summarise(
+    `Motivo del Viaje` = "TOTAL",
+    n_obs = sum(n_obs, na.rm = TRUE),
+    tiempo_viaje_prom_min = NA_real_   # o podrías poner mean(...) si quisieras
+  )
+
+prom_global_actividad_con_total <- bind_rows(prom_global_actividad, total_row)
 
 
 prom_persona_actividad %>% arrange(Identificación, `Motivo del Viaje`)
 prom_global_actividad
 
-prom_global_actividad <- prom_global_actividad %>%
-  mutate(TTR_prom = ifelse(is.nan(TTR_prom), NA, TTR_prom))
+#prom_global_actividad <- prom_global_actividad %>%
+#  mutate(TTR_prom = ifelse(is.nan(TTR_prom), NA, TTR_prom))
 
 write_xlsx(
   list(
     "Promedio por persona y actividad" = prom_persona_actividad,
-    "Promedio global por actividad"    = prom_global_actividad
+    "Promedio global por actividad"    = prom_global_actividad_con_total
   ),
   path = "resultados_viajes.xlsx"
 )
